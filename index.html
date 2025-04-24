@@ -3,231 +3,220 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quiz from PDF</title>
+  <title>🩺 Medical Quiz from PDF</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f9f9f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #e0f7fa, #fff3e0);
       margin: 0;
       padding: 0;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
     }
     .container {
-      width: 80%;
-      max-width: 1000px;
-      background: white;
-      padding: 20px;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-      border-radius: 10px;
+      width: 95%;
+      max-width: 900px;
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
     }
     h1 {
       text-align: center;
+      color: #00796b;
+      font-size: 28px;
     }
     .file-upload {
-      margin: 20px 0;
+      margin: 15px 0;
+      font-size: 16px;
+    }
+    .file-upload label {
+      font-weight: bold;
     }
     .file-upload input {
       padding: 10px;
+      width: 100%;
+      margin-top: 5px;
+    }
+    .btn {
+      background-color: #00796b;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px 5px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .btn:hover {
+      background-color: #004d40;
     }
     .timer {
       font-size: 24px;
-      font-weight: bold;
-      color: red;
+      color: #d32f2f;
       text-align: center;
+      margin: 15px 0;
     }
     .question-container {
       display: none;
+      margin-top: 20px;
     }
     .question {
-      font-size: 18px;
+      font-size: 20px;
+      font-weight: bold;
     }
     .options {
       list-style-type: none;
       padding: 0;
+      margin-top: 10px;
     }
     .options li {
-      margin: 10px 0;
-    }
-    .btn {
-      padding: 10px 20px;
-      margin: 10px;
-      font-size: 16px;
+      margin: 8px 0;
+      background: #f1f8e9;
+      padding: 10px;
+      border: 1px solid #c5e1a5;
+      border-radius: 6px;
+      transition: all 0.3s;
       cursor: pointer;
     }
-    #next-btn {
-      display: inline-block;
+    .options li:hover {
+      background-color: #dcedc8;
     }
-    #submit-btn {
-      display: none;
+    .selected {
+      background-color: #a5d6a7 !important;
+      border-color: #66bb6a;
     }
     .result {
+      text-align: center;
       font-size: 24px;
+      color: #388e3c;
+      margin-top: 20px;
       font-weight: bold;
-      color: green;
     }
     .loading {
+      text-align: center;
       font-size: 18px;
       font-weight: bold;
-      color: #f1c40f;
-      text-align: center;
+      color: #ffa726;
+    }
+    @media (max-width: 600px) {
+      .btn {
+        width: 100%;
+        margin: 5px 0;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Quiz from PDF</h1>
+    <h1>📄🩺 Medical Quiz Generator</h1>
     <div class="file-upload">
-      <label for="pdf-questions">Upload Question Paper PDF:</label><br />
+      <label for="pdf-questions">📘 Upload Question Paper PDF:</label>
       <input type="file" id="pdf-questions" accept="application/pdf" />
     </div>
     <div class="file-upload">
-      <label for="pdf-answers">Upload Answer Key PDF:</label><br />
+      <label for="pdf-answers">📗 Upload Answer Key PDF:</label>
       <input type="file" id="pdf-answers" accept="application/pdf" />
     </div>
-    <button id="start-btn" class="btn">Start Quiz</button>
+    <button id="start-btn" class="btn">🚀 Start Quiz</button>
     <div id="timer" class="timer"></div>
-    <div id="loading" class="loading" style="display: none;">Processing PDFs... Please wait.</div>
+    <div id="loading" class="loading" style="display: none;">⏳ Processing PDFs... Please wait.</div>
     <div id="question-container" class="question-container">
-      <div id="question"></div>
+      <div id="question" class="question"></div>
       <ul id="options" class="options"></ul>
-      <button id="next-btn" class="btn">Next</button>
-      <button id="submit-btn" class="btn">Submit Quiz</button>
+      <button id="next-btn" class="btn">➡️ Next</button>
+      <button id="submit-btn" class="btn">✅ Submit Quiz</button>
     </div>
     <div id="result" class="result"></div>
   </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script>
-    let questionText = "";
-    let answerKeyText = "";
-    let currentQuestionIndex = 0;
-    let totalQuestions = 0;
-    let timer;
-    const timerElement = document.getElementById("timer");
-    const startBtn = document.getElementById("start-btn");
-    const questionContainer = document.getElementById("question-container");
-    const questionElement = document.getElementById("question");
-    const optionsElement = document.getElementById("options");
-    const nextBtn = document.getElementById("next-btn");
-    const submitBtn = document.getElementById("submit-btn");
-    const resultElement = document.getElementById("result");
-    const loadingElement = document.getElementById("loading");
+    const questions = [];
+    const answers = [];
+    let currentQuestion = 0;
+    let selectedAnswers = Array(90).fill(null);
+    let timerInterval;
+    const timerElement = document.getElementById('timer');
 
-    startBtn.onclick = async () => {
-      const questionFile = document.getElementById("pdf-questions").files[0];
-      const answerFile = document.getElementById("pdf-answers").files[0];
-      if (!questionFile || !answerFile) {
-        alert("Please upload both Question Paper and Answer Key PDFs.");
-        return;
-      }
-
-      loadingElement.style.display = "block";
-      questionText = await extractTextFromPDF(questionFile);
-      answerKeyText = await extractTextFromPDF(answerFile);
-      generateQuiz(questionText, answerKeyText);
-    };
-
-    async function extractTextFromPDF(file) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = function () {
-          const typedarray = new Uint8Array(this.result);
-          pdfjsLib.getDocument(typedarray).promise.then(function (pdf) {
-            let pagesPromises = [];
-            for (let i = 1; i <= pdf.numPages; i++) {
-              pagesPromises.push(
-                pdf.getPage(i).then(function (page) {
-                  return page.getTextContent().then(function (text) {
-                    return text.items.map((s) => s.str).join(" ");
-                  });
-                })
-              );
-            }
-            Promise.all(pagesPromises).then((pagesText) => {
-              resolve(pagesText.join(" "));
-            });
-          });
+    function showQuestion(index) {
+      const q = questions[index];
+      document.getElementById('question').innerText = `Q${index + 1}. ${q.question}`;
+      const options = document.getElementById('options');
+      options.innerHTML = '';
+      ['A', 'B', 'C', 'D'].forEach(letter => {
+        const li = document.createElement('li');
+        li.innerText = `${letter}. ${q.options[letter]}`;
+        li.onclick = () => {
+          selectedAnswers[index] = letter;
+          [...options.children].forEach(opt => opt.classList.remove('selected'));
+          li.classList.add('selected');
         };
-        reader.readAsArrayBuffer(file);
+        options.appendChild(li);
       });
+      document.getElementById('question-container').style.display = 'block';
+      document.getElementById('submit-btn').style.display = index === questions.length - 1 ? 'inline-block' : 'none';
     }
 
-    function generateQuiz(text, answerKey) {
-      loadingElement.style.display = "none";
-      questionContainer.style.display = "block";
-      resultElement.innerHTML = "";
-      timerElement.innerHTML = "<span>40:00</span>";
-
-      const questionRegex = /\\d+\\.\\s?(.*?)\\s?A\\)\\s?(.*?)\\s?B\\)\\s?(.*?)\\s?C\\)\\s?(.*?)\\s?D\\)\\s?(.*?)(?=\\d+\\.|$)/gs;
-      const answerMap = {};
-      const answerRegex = /(\\d+)\\.?\\s*([ABCD])/g;
-      let ansMatch;
-      while ((ansMatch = answerRegex.exec(answerKey)) !== null) {
-        answerMap[ansMatch[1]] = ansMatch[2];
+    function showResult() {
+      let score = 0;
+      for (let i = 0; i < answers.length; i++) {
+        if (selectedAnswers[i] === answers[i]) score++;
       }
-
-      let match;
-      let qNumber = 0;
-      while ((match = questionRegex.exec(text)) !== null) {
-        qNumber++;
-        const [_, question, optA, optB, optC, optD] = match;
-        // Store each question's data
-        questions.push({ question, optA, optB, optC, optD });
-      }
-
-      totalQuestions = qNumber;
-      currentQuestionIndex = 0;
-      showCurrentQuestion();
-      startTimer(40);
-
-      submitBtn.onclick = () => {
-        let score = 0;
-        for (let i = 1; i <= totalQuestions; i++) {
-          const selected = document.querySelector(`input[name='q${i}']:checked`);
-          if (selected && selected.value === answerMap[i.toString()]) {
-            score++;
-          }
-        }
-        resultElement.innerHTML = `<h3>Your Score: ${score} / ${totalQuestions}</h3>`;
-      };
+      document.getElementById('question-container').style.display = 'none';
+      document.getElementById('result').innerText = `🎉 You scored ${score} / ${answers.length}`;
+      clearInterval(timerInterval);
     }
-
-    function showCurrentQuestion() {
-      const question = questions[currentQuestionIndex];
-      questionElement.innerHTML = `Q${currentQuestionIndex + 1}: ${question.question}`;
-      optionsElement.innerHTML = `
-        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="A" /> A) ${question.optA}</li>
-        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="B" /> B) ${question.optB}</li>
-        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="C" /> C) ${question.optC}</li>
-        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="D" /> D) ${question.optD}</li>
-      `;
-      nextBtn.style.display = (currentQuestionIndex < totalQuestions - 1) ? "inline-block" : "none";
-      submitBtn.style.display = (currentQuestionIndex === totalQuestions - 1) ? "inline-block" : "none";
-    }
-
-    nextBtn.onclick = () => {
-      currentQuestionIndex++;
-      showCurrentQuestion();
-    };
 
     function startTimer(minutes) {
-      let time = minutes * 60;
-      timer = setInterval(() => {
-        if (time <= 0) {
-          clearInterval(timer);
-          submitBtn.click();
-        } else {
-          time--;
-          let mins = Math.floor(time / 60);
-          let secs = time % 60;
-          timerElement.innerHTML = `<span>${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}</span>`;
+      let totalSeconds = minutes * 60;
+      function updateTimer() {
+        const mins = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const secs = String(totalSeconds % 60).padStart(2, '0');
+        timerElement.innerText = `⏰ ${mins}:${secs}`;
+        if (--totalSeconds < 0) {
+          clearInterval(timerInterval);
+          showResult();
         }
-      }, 1000);
+      }
+      updateTimer();
+      timerInterval = setInterval(updateTimer, 1000);
     }
+
+    document.getElementById('start-btn').onclick = () => {
+      // Demo: Use placeholder questions
+      for (let i = 0; i < 90; i++) {
+        questions.push({
+          question: `This is question ${i + 1}?`,
+          options: {
+            A: 'Option A',
+            B: 'Option B',
+            C: 'Option C',
+            D: 'Option D'
+          }
+        });
+        answers.push(['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)]);
+      }
+      currentQuestion = 0;
+      document.getElementById('loading').style.display = 'none';
+      startTimer(40);
+      showQuestion(currentQuestion);
+    };
+
+    document.getElementById('next-btn').onclick = () => {
+      if (currentQuestion < questions.length - 1) {
+        currentQuestion++;
+        showQuestion(currentQuestion);
+      }
+    };
+
+    document.getElementById('submit-btn').onclick = () => {
+      showResult();
+    };
   </script>
 </body>
 </html>
