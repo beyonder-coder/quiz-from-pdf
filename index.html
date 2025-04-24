@@ -3,78 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PDF to Quiz</title>
+  <title>Quiz from PDF</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
+      background-color: #f9f9f9;
       margin: 0;
-      padding: 20px;
+      padding: 0;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       align-items: center;
+      height: 100vh;
     }
     .container {
+      width: 80%;
+      max-width: 1000px;
       background: white;
       padding: 20px;
+      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
       border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      max-width: 800px;
-      width: 100%;
     }
     h1 {
       text-align: center;
     }
-    #quiz-container {
-      margin-top: 20px;
+    .file-upload {
+      margin: 20px 0;
+    }
+    .file-upload input {
+      padding: 10px;
+    }
+    .timer {
+      font-size: 24px;
+      font-weight: bold;
+      color: red;
+      text-align: center;
+    }
+    .question-container {
+      display: none;
     }
     .question {
-      margin-bottom: 20px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      font-size: 18px;
     }
     .options {
       list-style-type: none;
       padding: 0;
     }
     .options li {
-      margin: 5px 0;
+      margin: 10px 0;
     }
-    .btn-submit {
-      margin-top: 20px;
+    .btn {
       padding: 10px 20px;
+      margin: 10px;
       font-size: 16px;
       cursor: pointer;
+    }
+    #next-btn {
+      display: inline-block;
+    }
+    #submit-btn {
+      display: none;
+    }
+    .result {
+      font-size: 24px;
+      font-weight: bold;
+      color: green;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📝 PDF Test to Quiz</h1>
-    <p>Upload <strong>Question Paper</strong> PDF and <strong>Answer Key</strong> PDF</p>
-    <input type="file" id="pdf-questions" accept="application/pdf" /> <br><br>
-    <input type="file" id="pdf-answers" accept="application/pdf" /> <br><br>
-    <button id="start-btn">Start Quiz</button>
-    <div id="quiz-container"></div>
-    <button id="submit-btn" class="btn-submit" style="display: none;">Submit Quiz</button>
-    <div id="result"></div>
+    <h1>Quiz from PDF</h1>
+    <div class="file-upload">
+      <label for="pdf-questions">Upload Question Paper PDF:</label><br />
+      <input type="file" id="pdf-questions" accept="application/pdf" />
+    </div>
+    <div class="file-upload">
+      <label for="pdf-answers">Upload Answer Key PDF:</label><br />
+      <input type="file" id="pdf-answers" accept="application/pdf" />
+    </div>
+    <button id="start-btn" class="btn">Start Quiz</button>
+    <div id="timer" class="timer"></div>
+    <div id="question-container" class="question-container">
+      <div id="question"></div>
+      <ul id="options" class="options"></ul>
+      <button id="next-btn" class="btn">Next</button>
+      <button id="submit-btn" class="btn">Submit Quiz</button>
+    </div>
+    <div id="result" class="result"></div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <script>
     let questionText = "";
     let answerKeyText = "";
+    let currentQuestionIndex = 0;
+    let totalQuestions = 0;
+    let timer;
+    const timerElement = document.getElementById("timer");
     const startBtn = document.getElementById("start-btn");
+    const questionContainer = document.getElementById("question-container");
+    const questionElement = document.getElementById("question");
+    const optionsElement = document.getElementById("options");
+    const nextBtn = document.getElementById("next-btn");
     const submitBtn = document.getElementById("submit-btn");
-    const quizContainer = document.getElementById("quiz-container");
-    const resultContainer = document.getElementById("result");
+    const resultElement = document.getElementById("result");
 
     startBtn.onclick = async () => {
       const questionFile = document.getElementById("pdf-questions").files[0];
       const answerFile = document.getElementById("pdf-answers").files[0];
       if (!questionFile || !answerFile) {
-        alert("Please upload both the Question PDF and the Answer Key PDF.");
+        alert("Please upload both Question Paper and Answer Key PDFs.");
         return;
       }
 
@@ -109,12 +148,13 @@
     }
 
     function generateQuiz(text, answerKey) {
-      quizContainer.innerHTML = "";
-      resultContainer.innerHTML = "";
+      questionContainer.style.display = "block";
+      resultElement.innerHTML = "";
+      timerElement.innerHTML = "<span>40:00</span>";
 
-      const questionRegex = /\d+\.\s?(.*?)\s?A\)\s?(.*?)\s?B\)\s?(.*?)\s?C\)\s?(.*?)\s?D\)\s?(.*?)(?=\d+\.|$)/gs;
+      const questionRegex = /\\d+\\.\\s?(.*?)\\s?A\\)\\s?(.*?)\\s?B\\)\\s?(.*?)\\s?C\\)\\s?(.*?)\\s?D\\)\\s?(.*?)(?=\\d+\\.|$)/gs;
       const answerMap = {};
-      const answerRegex = /(\d+)\.?\s*([ABCD])/g;
+      const answerRegex = /(\\d+)\\.?\\s*([ABCD])/g;
       let ansMatch;
       while ((ansMatch = answerRegex.exec(answerKey)) !== null) {
         answerMap[ansMatch[1]] = ansMatch[2];
@@ -125,31 +165,58 @@
       while ((match = questionRegex.exec(text)) !== null) {
         qNumber++;
         const [_, question, optA, optB, optC, optD] = match;
-        const div = document.createElement("div");
-        div.classList.add("question");
-        div.innerHTML = `
-          <strong>Q${qNumber}: ${question}</strong>
-          <ul class="options">
-            <li><input type="radio" name="q${qNumber}" value="A" /> A) ${optA}</li>
-            <li><input type="radio" name="q${qNumber}" value="B" /> B) ${optB}</li>
-            <li><input type="radio" name="q${qNumber}" value="C" /> C) ${optC}</li>
-            <li><input type="radio" name="q${qNumber}" value="D" /> D) ${optD}</li>
-          </ul>
-        `;
-        quizContainer.appendChild(div);
+        // Store each question's data
+        questions.push({ question, optA, optB, optC, optD });
       }
-      submitBtn.style.display = "block";
+
+      totalQuestions = qNumber;
+      currentQuestionIndex = 0;
+      showCurrentQuestion();
+      startTimer(40);
 
       submitBtn.onclick = () => {
         let score = 0;
-        for (let i = 1; i <= qNumber; i++) {
+        for (let i = 1; i <= totalQuestions; i++) {
           const selected = document.querySelector(`input[name='q${i}']:checked`);
           if (selected && selected.value === answerMap[i.toString()]) {
             score++;
           }
         }
-        resultContainer.innerHTML = `<h3>Your Score: ${score} / ${qNumber}</h3>`;
+        resultElement.innerHTML = `<h3>Your Score: ${score} / ${totalQuestions}</h3>`;
       };
+    }
+
+    function showCurrentQuestion() {
+      const question = questions[currentQuestionIndex];
+      questionElement.innerHTML = `Q${currentQuestionIndex + 1}: ${question.question}`;
+      optionsElement.innerHTML = `
+        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="A" /> A) ${question.optA}</li>
+        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="B" /> B) ${question.optB}</li>
+        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="C" /> C) ${question.optC}</li>
+        <li><input type="radio" name="q${currentQuestionIndex + 1}" value="D" /> D) ${question.optD}</li>
+      `;
+      nextBtn.style.display = (currentQuestionIndex < totalQuestions - 1) ? "inline-block" : "none";
+      submitBtn.style.display = (currentQuestionIndex === totalQuestions - 1) ? "inline-block" : "none";
+    }
+
+    nextBtn.onclick = () => {
+      currentQuestionIndex++;
+      showCurrentQuestion();
+    };
+
+    function startTimer(minutes) {
+      let time = minutes * 60;
+      timer = setInterval(() => {
+        if (time <= 0) {
+          clearInterval(timer);
+          submitBtn.click();
+        } else {
+          time--;
+          let mins = Math.floor(time / 60);
+          let secs = time % 60;
+          timerElement.innerHTML = `<span>${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}</span>`;
+        }
+      }, 1000);
     }
   </script>
 </body>
