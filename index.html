@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🩺 Medical Quiz from PDF</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -143,6 +144,40 @@
     let timerInterval;
     const timerElement = document.getElementById('timer');
 
+    async function extractTextFromPDF(file) {
+      const pdfData = new Uint8Array(await file.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      return text;
+    }
+
+    function parseQuestions(text) {
+      const qPattern = /\d+\.?\s*([^\n]+?)\s*A\.?\s*([^\n]+)\s*B\.?\s*([^\n]+)\s*C\.?\s*([^\n]+)\s*D\.?\s*([^\n]+)/g;
+      let match;
+      const parsed = [];
+      while ((match = qPattern.exec(text)) !== null) {
+        parsed.push({
+          question: match[1],
+          options: {
+            A: match[2],
+            B: match[3],
+            C: match[4],
+            D: match[5],
+          }
+        });
+      }
+      return parsed;
+    }
+
+    function parseAnswers(text) {
+      return text.match(/[A-D]/g) || [];
+    }
+
     function showQuestion(index) {
       const q = questions[index];
       document.getElementById('question').innerText = `Q${index + 1}. ${q.question}`;
@@ -187,22 +222,24 @@
       timerInterval = setInterval(updateTimer, 1000);
     }
 
-    document.getElementById('start-btn').onclick = () => {
-      // Demo: Use placeholder questions
-      for (let i = 0; i < 90; i++) {
-        questions.push({
-          question: `This is question ${i + 1}?`,
-          options: {
-            A: 'Option A',
-            B: 'Option B',
-            C: 'Option C',
-            D: 'Option D'
-          }
-        });
-        answers.push(['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)]);
+    document.getElementById('start-btn').onclick = async () => {
+      const questionFile = document.getElementById('pdf-questions').files[0];
+      const answerFile = document.getElementById('pdf-answers').files[0];
+      if (!questionFile || !answerFile) {
+        alert('📄 Please upload both the question and answer PDFs.');
+        return;
+      }
+      document.getElementById('loading').style.display = 'block';
+      const qText = await extractTextFromPDF(questionFile);
+      const aText = await extractTextFromPDF(answerFile);
+      questions.push(...parseQuestions(qText));
+      answers.push(...parseAnswers(aText));
+      document.getElementById('loading').style.display = 'none';
+      if (questions.length === 0 || answers.length === 0) {
+        alert('❌ Failed to extract questions or answers. Please check PDF formatting.');
+        return;
       }
       currentQuestion = 0;
-      document.getElementById('loading').style.display = 'none';
       startTimer(40);
       showQuestion(currentQuestion);
     };
