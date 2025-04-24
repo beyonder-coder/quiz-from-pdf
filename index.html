@@ -69,6 +69,12 @@
       font-weight: bold;
       color: green;
     }
+    .loading {
+      font-size: 18px;
+      font-weight: bold;
+      color: #f1c40f;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -84,6 +90,7 @@
     </div>
     <button id="start-btn" class="btn">Start Quiz</button>
     <div id="timer" class="timer"></div>
+    <div id="loading" class="loading" style="display: none;">Processing PDFs... Please wait.</div>
     <div id="question-container" class="question-container">
       <div id="question"></div>
       <ul id="options" class="options"></ul>
@@ -108,6 +115,7 @@
     const nextBtn = document.getElementById("next-btn");
     const submitBtn = document.getElementById("submit-btn");
     const resultElement = document.getElementById("result");
+    const loadingElement = document.getElementById("loading");
 
     startBtn.onclick = async () => {
       const questionFile = document.getElementById("pdf-questions").files[0];
@@ -117,6 +125,7 @@
         return;
       }
 
+      loadingElement.style.display = "block";
       questionText = await extractTextFromPDF(questionFile);
       answerKeyText = await extractTextFromPDF(answerFile);
       generateQuiz(questionText, answerKeyText);
@@ -148,6 +157,7 @@
     }
 
     function generateQuiz(text, answerKey) {
+      loadingElement.style.display = "none";
       questionContainer.style.display = "block";
       resultElement.innerHTML = "";
       timerElement.innerHTML = "<span>40:00</span>";
